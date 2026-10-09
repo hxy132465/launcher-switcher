@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<device-admin xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-policies>
+        <!--
+            No dangerous device policies are actually needed. This block only
+            declares the receiver as a valid device administrator so the app can
+            be promoted to Device Owner via:
+                adb shell dpm set-device-owner \
+                    com.example.launcherswitcher/.MyDeviceAdminReceiver
+        -->
+        <force-lock />
+    </uses-policies>
+</device-admin>

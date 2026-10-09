@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Launcher Switcher</string>
+    <string name="device_admin_description">Allows Launcher Switcher to change the system default launcher.</string>
+    <string name="refresh">Refresh</string>
+    <string name="authorize">Authorize</string>
+    <string name="reset_default">Reset</string>
+    <string name="choose_launcher">Installed launchers</string>
+    <string name="current">Current</string>
+    <string name="device_owner_yes">Device Owner: active</string>
+    <string name="device_owner_no">Device Owner: not set</string>
+    <string name="dhizuku_available">Dhizuku available, not authorized</string>
+    <string name="shizuku_available">Shizuku available, not authorized</string>
+    <string name="current_launcher_format">Current launcher: %1$s</string>
+    <string name="no_launchers">No launchers found.</string>
+    <string name="not_owner_toast">This app is not Device Owner yet.</string>
+    <string name="not_authorized_toast">No permission to switch launcher.</string>
+    <string name="switch_success">Default launcher changed to %1$s</string>
+    <string name="switch_failed">Failed to change launcher: %1$s</string>
+    <string name="reset_success">Cleared persistent launcher preference.</string>
+    <string name="reset_none">No current launcher to reset.</string>
+    <string name="reset_unsupported_shizuku">Reset via Shizuku is unsupported; use Device Owner or Dhizuku to reset.</string>
+    <string name="no_authorization_available">No authorization source is available.</string>
+    <string name="confirm_switch_title">Change default launcher</string>
+    <string name="confirm_switch_message">Set %1$s as the default home app?</string>
+    <string name="confirm">Confirm</string>
+    <string name="cancel">Cancel</string>
+    <string name="setup_hint">Device Owner setup (run once via ADB, no accounts on device):\n\nadb shell dpm set-device-owner com.example.launcherswitcher/.MyDeviceAdminReceiver</string>
+</resources>

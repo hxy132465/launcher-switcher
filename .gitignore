@@ -104,6 +104,16 @@
 *.log
 **/logs/
 
+# Android
+local.properties
+*.apk
+*.aab
+*.ap_
+*.dex
+captures/
+**/release/
+.kotlin/
+
 # Environment and secrets
 **/.env
 **/.env.local
