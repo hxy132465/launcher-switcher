@@ -11,6 +11,7 @@ import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.graphics.drawable.Drawable
 import android.os.IInterface
+import android.util.Log
 import com.rosan.dhizuku.api.Dhizuku
 import com.rosan.dhizuku.api.DhizukuRequestPermissionListener
 
@@ -54,6 +55,8 @@ class LauncherController(private val context: Context) {
         Dhizuku.requestPermission(listener)
     }
 
+    fun isDhizukuProxySuccessful(): Boolean = dhizukuProxied
+
     // ---------- actions ----------
 
     fun setLauncherAsDeviceOwner(component: ComponentName) {
@@ -66,27 +69,34 @@ class LauncherController(private val context: Context) {
         dpm.clearPackagePersistentPreferredActivities(ownAdmin, packageName)
     }
 
-    fun setLauncherAsDhizuku(component: ComponentName) {
+    fun setLauncherAsDhizuku(component: ComponentName): Result<Unit> = runCatching {
         ensureDhizukuProxy()
         dpm.addPersistentPreferredActivity(requireDhizukuOwner(), homeFilter, component)
     }
 
-    fun clearLauncherAsDhizuku(packageName: String) {
+    fun clearLauncherAsDhizuku(packageName: String): Result<Unit> = runCatching {
         ensureDhizukuProxy()
         dpm.clearPackagePersistentPreferredActivities(requireDhizukuOwner(), packageName)
     }
 
-    @SuppressLint("SoonBlockedPrivateApi")
     @Synchronized
+    @SuppressLint("SoonBlockedPrivateApi")
     private fun ensureDhizukuProxy() {
         if (dhizukuProxied) return
-        val field = DevicePolicyManager::class.java.getDeclaredField("mService")
-        field.isAccessible = true
-        val original = field.get(dpm) as IInterface
-        val wrapped = Dhizuku.binderWrapper(original.asBinder())
-        val proxy = IDevicePolicyManager.Stub.asInterface(wrapped)
-        field.set(dpm, proxy)
-        dhizukuProxied = true
+        try {
+            val field = DevicePolicyManager::class.java.getDeclaredField("mService")
+            field.isAccessible = true
+            val original = field.get(dpm) as IInterface
+            val wrapped = Dhizuku.binderWrapper(original.asBinder())
+            val proxy = IDevicePolicyManager.Stub.asInterface(wrapped)
+            field.set(dpm, proxy)
+            dhizukuProxied = true
+            Log.i(TAG, "Dhizuku proxy installed")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to install Dhizuku proxy", e)
+            dhizukuProxied = false
+            throw RuntimeException("Dhizuku proxy setup failed: ${e.message}", e)
+        }
     }
 
     private fun requireDhizukuOwner(): ComponentName =
@@ -123,6 +133,10 @@ class LauncherController(private val context: Context) {
         )
         val activityInfo = resolved?.activityInfo ?: return null
         return ComponentName(activityInfo.packageName, activityInfo.name)
+    }
+
+    companion object {
+        private const val TAG = "LauncherController"
     }
 }
 

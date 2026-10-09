@@ -23,11 +23,8 @@ class ShizukuHelper(private val context: Context) {
     @Volatile
     private var bound = false
 
-    @Volatile
-    private var pendingComponent: String? = null
-
-    @Volatile
-    private var pendingCallback: ((Boolean, String) -> Unit)? = null
+    /** Queue of pending (component, callback) pairs. Fixes race where rapid taps overwrite each other. */
+    private val pendingQueue = mutableListOf<Pair<String, (Boolean, String) -> Unit>>()
 
     private val userServiceArgs: Shizuku.UserServiceArgs =
         Shizuku.UserServiceArgs(
@@ -44,15 +41,7 @@ class ShizukuHelper(private val context: Context) {
             } else {
                 null
             }
-            val comp = pendingComponent
-            val cb = pendingCallback
-            pendingComponent = null
-            pendingCallback = null
-            if (service != null && comp != null && cb != null) {
-                execAsync(service!!, comp, cb)
-            } else if (cb != null) {
-                cb(false, "Shizuku user service unavailable")
-            }
+            drainPending()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -94,34 +83,47 @@ class ShizukuHelper(private val context: Context) {
 
     /**
      * Sets the default home activity. [component] must be a flattened component name
-     * ("package/class"). The result is delivered on the main thread.
+     * ("package/class"). Supports [clear] flag to clear the persistent home preference
+     * via the system role command when possible.
      */
-    fun setHomeActivity(component: String, callback: (Boolean, String) -> Unit) {
+    fun setHomeActivity(component: String, clear: Boolean = false, callback: (Boolean, String) -> Unit) {
         mainHandler.post {
             val svc = service
-            if (svc != null) {
-                execAsync(svc, component, callback)
-            } else {
-                pendingComponent = component
-                pendingCallback = callback
+            if (svc == null) {
+                pendingQueue.add(component to callback)
                 bind()
                 if (!bound) {
-                    pendingComponent = null
-                    pendingCallback = null
+                    pendingQueue.removeAll { it.first == component && it.second === callback }
                     callback(false, "Shizuku is not authorized")
                 }
+            } else {
+                execAsync(svc, component, clear, callback)
             }
+        }
+    }
+
+    private fun drainPending() {
+        while (pendingQueue.isNotEmpty()) {
+            val (comp, cb) = pendingQueue.removeAt(0)
+            val svc = service
+            if (svc == null) break
+            execAsync(svc, comp, false, cb)
         }
     }
 
     private fun execAsync(
         svc: IUserService,
         component: String,
+        clear: Boolean,
         callback: (Boolean, String) -> Unit
     ) {
         Thread {
             val result = try {
-                val output = svc.setHomeActivity(component)
+                val output = if (clear) {
+                    svc.clearHomeActivity(component)
+                } else {
+                    svc.setHomeActivity(component)
+                }
                 val failed = output.startsWith("ERROR") ||
                     output.contains("Error", ignoreCase = true) ||
                     output.contains("Exception", ignoreCase = true)

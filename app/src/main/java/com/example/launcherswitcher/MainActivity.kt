@@ -50,6 +50,11 @@ class MainActivity : AppCompatActivity() {
         Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        shizuku.unbind()
+    }
+
     override fun onResume() {
         super.onResume()
         refresh()
@@ -119,21 +124,21 @@ class MainActivity : AppCompatActivity() {
         }
 
     private fun confirmSwitch(launcher: LauncherInfo) {
-        when (activeMode()) {
+        when (val mode = activeMode()) {
             Mode.NONE -> {
                 toast(getString(R.string.not_authorized_toast))
                 return
             }
             Mode.DHIZUKU -> confirmWithDhizuku(launcher)
             Mode.SHIZUKU -> confirmWithShizuku(launcher)
-            else -> confirmWithDeviceOwner(launcher)
+            Mode.DEVICE_OWNER -> confirmWithDeviceOwner(launcher)
         }
     }
 
     private fun confirmWithDeviceOwner(launcher: LauncherInfo) {
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.confirm_switch_title)
-            .setMessage(getString(R.string.confirm_switch_message, launcher.label))
+            .setMessage(getString(R.string.confirm_switch_message_device_owner, launcher.label))
             .setPositiveButton(R.string.confirm) { _, _ -> switchLauncher(launcher) }
             .setNegativeButton(R.string.cancel, null)
             .show()
@@ -172,12 +177,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun switchLauncherViaDhizuku(launcher: LauncherInfo) {
-        try {
-            controller.setLauncherAsDhizuku(launcher.component)
+        val result = controller.setLauncherAsDhizuku(launcher.component)
+        if (result.isSuccess) {
             toast(getString(R.string.switch_success, launcher.label))
             refresh()
-        } catch (e: Exception) {
-            toast(getString(R.string.switch_failed, e.message ?: e.javaClass.simpleName))
+        } else {
+            toast(getString(R.string.switch_failed, result.exceptionOrNull()?.message ?: "unknown"))
         }
     }
 
@@ -193,7 +198,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun resetDefault() {
-        when (activeMode()) {
+        when (val mode = activeMode()) {
             Mode.NONE -> {
                 toast(getString(R.string.not_authorized_toast))
                 return
@@ -204,16 +209,30 @@ class MainActivity : AppCompatActivity() {
                     toast(getString(R.string.reset_none))
                     return
                 }
-                try {
-                    controller.clearLauncherAsDhizuku(current.packageName)
+                val result = controller.clearLauncherAsDhizuku(current.packageName)
+                if (result.isSuccess) {
                     toast(getString(R.string.reset_success))
                     refresh()
-                } catch (e: Exception) {
-                    toast(getString(R.string.switch_failed, e.message ?: e.javaClass.simpleName))
+                } else {
+                    toast(getString(R.string.switch_failed, result.exceptionOrNull()?.message ?: "unknown"))
                 }
             }
-            Mode.SHIZUKU -> toast(getString(R.string.reset_unsupported_shizuku))
-            else -> {
+            Mode.SHIZUKU -> {
+                val current = controller.currentLauncherComponent()
+                if (current == null) {
+                    toast(getString(R.string.reset_none))
+                    return
+                }
+                shizuku.setHomeActivity(current.flattenToString(), clear = true) { ok, msg ->
+                    if (ok) {
+                        toast(getString(R.string.reset_success))
+                        refresh()
+                    } else {
+                        toast(getString(R.string.switch_failed, msg))
+                    }
+                }
+            }
+            Mode.DEVICE_OWNER -> {
                 val current = controller.currentLauncherComponent()
                 if (current == null) {
                     toast(getString(R.string.reset_none))
@@ -230,7 +249,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun activeMode(): MainActivity.Mode = when {
+    private fun activeMode(): Mode = when {
         controller.isOwnDeviceOwner() -> Mode.DEVICE_OWNER
         dhizukuPermissionGranted -> Mode.DHIZUKU
         shizuku.isPermissionGranted() -> Mode.SHIZUKU

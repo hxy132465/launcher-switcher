@@ -9,8 +9,6 @@
     <string name="current">Current</string>
     <string name="device_owner_yes">Device Owner: active</string>
     <string name="device_owner_no">Device Owner: not set</string>
-    <string name="dhizuku_available">Dhizuku available, not authorized</string>
-    <string name="shizuku_available">Shizuku available, not authorized</string>
     <string name="current_launcher_format">Current launcher: %1$s</string>
     <string name="no_launchers">No launchers found.</string>
     <string name="not_owner_toast">This app is not Device Owner yet.</string>
@@ -23,6 +21,7 @@
     <string name="no_authorization_available">No authorization source is available.</string>
     <string name="confirm_switch_title">Change default launcher</string>
     <string name="confirm_switch_message">Set %1$s as the default home app?</string>
+    <string name="confirm_switch_message_device_owner">Change the default launcher to %1$s?\n\nNote: Device Owner is permanent until explicitly revoked via ADB. Consider using Dhizuku or Shizuku instead.</string>
     <string name="confirm">Confirm</string>
     <string name="cancel">Cancel</string>
     <string name="setup_hint">Device Owner setup (run once via ADB, no accounts on device):\n\nadb shell dpm set-device-owner com.example.launcherswitcher/.MyDeviceAdminReceiver</string>
