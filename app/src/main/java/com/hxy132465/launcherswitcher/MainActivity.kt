@@ -87,6 +87,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refresh() {
+        if (!::binding.isInitialized) return
         val isOwner = controller.isOwnDeviceOwner()
         binding.ownerStatus.text = getString(
             if (isOwner) R.string.device_owner_yes else R.string.device_owner_no
@@ -119,7 +120,12 @@ class MainActivity : AppCompatActivity() {
             else -> ModeBadge.NONE
         }
         binding.modeBadge.visibility = if (mode != ModeBadge.NONE) View.VISIBLE else View.GONE
-        binding.modeBadge.setText(mode.labelRes)
+        binding.modeBadge.text = when (mode) {
+            ModeBadge.DEVICE_OWNER -> getString(R.string.badge_device_owner)
+            ModeBadge.DHIZUKU -> getString(R.string.badge_dhizuku)
+            ModeBadge.SHIZUKU -> getString(R.string.badge_shizuku)
+            else -> ""
+        }
         binding.modeBadge.setTextColor(mode.textColorRes?.let { getColor(it) } ?: android.graphics.Color.WHITE)
         binding.modeBadge.setBackgroundResource(mode.bgRes)
     }
