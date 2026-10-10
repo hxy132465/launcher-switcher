@@ -6,4 +6,6 @@
     <color name="badge_orange">#E65100</color>
     <color name="white">#FFFFFF</color>
     <color name="ic_launcher_background">#1565C0</color>
+    <color name="setup_cmd_bg">#F5F5F5</color>
+    <color name="setup_cmd_text">#212121</color>
 </resources>

@@ -44,7 +44,7 @@
                     android:layout_height="wrap_content"
                     android:textSize="16sp"
                     android:textStyle="bold"
-                    tools:text="Device Owner: active" />
+                    tools:text="设备所有者：已激活" />
 
                 <TextView
                     android:id="@+id/currentLauncher"
@@ -52,17 +52,55 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:textSize="14sp"
-                    tools:text="Current launcher: com.android.launcher3" />
+                    tools:text="当前启动器：com.android.launcher3" />
 
-                <TextView
-                    android:id="@+id/setupHint"
+                <!-- Device Owner ADB setup section -->
+                <LinearLayout
+                    android:id="@+id/setupSection"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:fontFamily="monospace"
-                    android:textSize="12sp"
+                    android:orientation="vertical"
                     android:visibility="gone"
-                    tools:visibility="visible" />
+                    tools:visibility="visible">
+
+                    <TextView
+                        android:id="@+id/setupHintTitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/setup_hint_title"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/setupHintDesc"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/setup_hint_desc"
+                        android:textSize="11sp"
+                        android:textColor="?android:attr/textColorSecondary" />
+
+                    <TextView
+                        android:id="@+id/setupHintCommand"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:background="@color/setup_cmd_bg"
+                        android:fontFamily="monospace"
+                        android:padding="10dp"
+                        android:text="@string/setup_hint_command"
+                        android:textColor="@color/setup_cmd_text"
+                        android:textSize="11sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/copyCommandButton"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="@string/copy_command" />
+                </LinearLayout>
             </LinearLayout>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>

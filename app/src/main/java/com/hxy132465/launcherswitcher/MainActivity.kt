@@ -1,6 +1,8 @@
 package com.hxy132465.launcherswitcher
 
+import android.content.ClipboardManager
 import android.content.ComponentName
+import android.content.Context
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -44,6 +46,7 @@ class MainActivity : AppCompatActivity() {
         binding.refreshButton.setOnClickListener { refresh() }
         binding.authorizeButton.setOnClickListener { authorize() }
         binding.resetButton.setOnClickListener { resetDefault() }
+        binding.copyCommandButton.setOnClickListener { copySetupCommand() }
 
         if (!prefs.getBoolean(KEY_WELCOME_SHOWN, false)) {
             prefs.edit().putBoolean(KEY_WELCOME_SHOWN, true).apply()
@@ -92,8 +95,7 @@ class MainActivity : AppCompatActivity() {
         binding.ownerStatus.text = getString(
             if (isOwner) R.string.device_owner_yes else R.string.device_owner_no
         )
-        binding.setupHint.visibility = if (isOwner) View.GONE else View.VISIBLE
-        binding.setupHint.text = getString(R.string.setup_hint)
+        binding.setupSection.visibility = if (isOwner) View.GONE else View.VISIBLE
 
         updateModeBadge()
 
@@ -305,6 +307,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun toast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+    }
+
+    private fun copySetupCommand() {
+        val command = getString(R.string.setup_hint_command)
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("ADB命令", command))
+        toast(getString(R.string.copied_to_clipboard))
     }
 
     private fun showWelcomeDialog() {
