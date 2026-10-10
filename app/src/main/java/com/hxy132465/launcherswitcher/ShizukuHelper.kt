@@ -11,8 +11,11 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import rikka.shizuku.Shizuku
 
 /**
- * Thin wrapper around the Shizuku API used to run the privileged shell command
- * {@code cmd package set-home-activity} through a [ShizukuUserService].
+ * Thin wrapper around the Shizuku API used to run privileged commands through a [ShizukuUserService].
+ *
+ * Two categories of operations:
+ * 1. Launcher switching (shell-level): [setHomeActivity], [clearHomeActivity] — works with ADB
+ * 2. Device Owner provisioning (root-level): [setDeviceOwner] — requires Shizuku running as root
  */
 class ShizukuHelper(private val context: Context) {
 
@@ -24,13 +27,11 @@ class ShizukuHelper(private val context: Context) {
     @Volatile
     private var bound = false
 
-    /**
-     * Queue of pending (component, clear-flag, callback) triples.
-     * Uses ConcurrentLinkedQueue for lock-free thread-safe access from both
-     * the main thread (setHomeActivity) and the Binder thread (drainPending
-     * dispatched via mainHandler).
-     */
+    /** Queue of pending launcher-switch requests. */
     private val pendingQueue = ConcurrentLinkedQueue<Pair<String, ((Boolean, String) -> Unit)>>()
+
+    /** Queue of pending device-owner requests. */
+    private val pendingDeviceOwnerQueue = ConcurrentLinkedQueue<((Boolean, String) -> Unit)>()
 
     private val userServiceArgs: Shizuku.UserServiceArgs =
         Shizuku.UserServiceArgs(
@@ -48,13 +49,18 @@ class ShizukuHelper(private val context: Context) {
                 null
             }
             // onServiceConnected may fire on a Binder thread; dispatch drain to main thread.
-            mainHandler.post { drainPending() }
+            mainHandler.post {
+                drainPending()
+                drainDeviceOwnerPending()
+            }
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             service = null
         }
     }
+
+    // ─── public queries ───────────────────────────────────────────────────────
 
     fun isBinderAvailable(): Boolean =
         runCatching { Shizuku.pingBinder() }.getOrDefault(false)
@@ -67,9 +73,17 @@ class ShizukuHelper(private val context: Context) {
         }.getOrDefault(false)
     }
 
+    /**
+     * Returns true if Shizuku is running with ROOT identity (uid 0).
+     * Device Owner provisioning via `dpm set-device-owner` only works in this mode.
+     */
+    fun isRootMode(): Boolean = runCatching { Shizuku.getUid() == 0 }.getOrDefault(false)
+
     fun requestPermission(requestCode: Int) {
         runCatching { Shizuku.requestPermission(requestCode) }
     }
+
+    // ─── bind / unbind ────────────────────────────────────────────────────────
 
     fun bind() {
         if (bound || !isPermissionGranted()) return
@@ -88,6 +102,8 @@ class ShizukuHelper(private val context: Context) {
         service = null
     }
 
+    // ─── launcher switching (works as shell) ──────────────────────────────────
+
     /**
      * Sets the default home activity. [component] must be a flattened component name
      * ("package/class"). Supports [clear] flag to clear the persistent home preference.
@@ -99,7 +115,6 @@ class ShizukuHelper(private val context: Context) {
                 pendingQueue.add(component to callback)
                 bind()
                 if (!bound) {
-                    // Remove this specific callback (not the queued entry) so we don't leak it.
                     pendingQueue.removeAll { entry -> entry.second === callback }
                     callback(false, "Shizuku is not authorized")
                 }
@@ -109,20 +124,53 @@ class ShizukuHelper(private val context: Context) {
         }
     }
 
+    // ─── device owner provisioning (requires root) ────────────────────────────
+
     /**
-     * Called from mainHandler.post inside onServiceConnected to drain pending requests.
-     * Runs on the main thread; safe to mutate pendingQueue without locking.
+     * Attempts to set this app as Device Owner via `dpm set-device-owner`.
+     * Only succeeds when Shizuku is running as ROOT (Magisk/KernelSU).
+     * When running as ADB shell (uid 2000), returns a clear error message
+     * explaining the limitation and the manual ADB fallback.
      */
+    fun setDeviceOwner(callback: (Boolean, String) -> Unit) {
+        mainHandler.post {
+            val svc = service
+            if (svc == null) {
+                pendingDeviceOwnerQueue.add(callback)
+                bind()
+                if (!bound) {
+                    pendingDeviceOwnerQueue.removeAll { it === callback }
+                    callback(false, buildShellFallbackMessage())
+                }
+            } else {
+                execDeviceOwnerAsync(svc, callback)
+            }
+        }
+    }
+
+    // ─── internal helpers ─────────────────────────────────────────────────────
+
     private fun drainPending() {
         while (true) {
             val entry = pendingQueue.poll() ?: break
             val svc = service
             if (svc == null) {
-                // Re-enqueue so it's not lost if the service reconnects.
                 pendingQueue.add(entry)
                 break
             }
             execAsync(svc, entry.first, false, entry.second)
+        }
+    }
+
+    private fun drainDeviceOwnerPending() {
+        while (true) {
+            val cb = pendingDeviceOwnerQueue.poll() ?: break
+            val svc = service
+            if (svc == null) {
+                pendingDeviceOwnerQueue.add(cb)
+                break
+            }
+            execDeviceOwnerAsync(svc, cb)
         }
     }
 
@@ -143,10 +191,27 @@ class ShizukuHelper(private val context: Context) {
         }.start()
     }
 
-    /**
-     * Parses the string returned by ShizukuUserService.
-     * Format: "EXIT:<code>\n<remaining output>" or bare output for compatibility.
-     */
+    private fun execDeviceOwnerAsync(
+        svc: IUserService,
+        callback: (Boolean, String) -> Unit
+    ) {
+        Thread {
+            val result = try {
+                val raw = svc.setDeviceOwner()
+                val (success, msg) = parseResult(raw)
+                // If shell-mode failure, augment with helpful message.
+                if (!success && raw.contains("Permission denied", ignoreCase = true)) {
+                    false to buildShellFallbackMessage()
+                } else {
+                    success to msg
+                }
+            } catch (t: Throwable) {
+                false to (t.message ?: t.javaClass.simpleName)
+            }
+            mainHandler.post { callback(result.first, result.second) }
+        }.start()
+    }
+
     private fun parseResult(output: String): Pair<Boolean, String> {
         val trimmed = output.trim()
         val lines = trimmed.split("\n", limit = 2)
@@ -157,13 +222,25 @@ class ShizukuHelper(private val context: Context) {
             val failed = exitCode != 0 || remainder.startsWith("ERROR") ||
                 remainder.contains("Error", ignoreCase = true) ||
                 remainder.contains("Exception", ignoreCase = true)
-            (!failed) to remainder.ifEmpty { if (exitCode == 0) "OK" else "EXIT:$exitCode" }
+            (!failed) to remainder.ifEmpty { if (exitCode == 0) "成功" else "EXIT:$exitCode" }
         } else {
-            // Legacy format (no EXIT: prefix): fall back to text heuristics.
             val failed = trimmed.startsWith("ERROR") ||
                 trimmed.contains("Error", ignoreCase = true) ||
                 trimmed.contains("Exception", ignoreCase = true)
             (!failed) to trimmed.ifEmpty { "OK" }
         }
+    }
+
+    /** Builds a user-friendly message explaining why the command failed in shell mode. */
+    private fun buildShellFallbackMessage(): String {
+        return """设备所有者设置需要 Root 权限。
+
+当前 Shizuku 以 Shell 身份运行，无法执行 dpm 命令。
+
+请选择以下方案之一：
+1. 在已 Root 的设备上使用 Shizuku（Magisk/KernelSU）
+2. 使用电脑 ADB 手动执行：
+   adb shell dpm set-device-owner com.hxy132465.launcherswitcher/.MyDeviceAdminReceiver
+   （要求设备无账户且为全新状态）"""
     }
 }

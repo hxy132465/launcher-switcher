@@ -47,6 +47,7 @@ class MainActivity : AppCompatActivity() {
         binding.authorizeButton.setOnClickListener { authorize() }
         binding.resetButton.setOnClickListener { resetDefault() }
         binding.copyCommandButton.setOnClickListener { copySetupCommand() }
+        binding.setDeviceOwnerButton.setOnClickListener { setDeviceOwnerViaShizuku() }
 
         if (!prefs.getBoolean(KEY_WELCOME_SHOWN, false)) {
             prefs.edit().putBoolean(KEY_WELCOME_SHOWN, true).apply()
@@ -98,6 +99,7 @@ class MainActivity : AppCompatActivity() {
         binding.setupSection.visibility = if (isOwner) View.GONE else View.VISIBLE
 
         updateModeBadge()
+        updateSetupSection()
 
         val current = controller.currentLauncherComponent()
         binding.currentLauncher.text = getString(
@@ -112,6 +114,44 @@ class MainActivity : AppCompatActivity() {
         (binding.launcherList.adapter as? LauncherAdapter)?.updateCurrent(current?.flattenToString())
 
         updateAuthorizeButton()
+    }
+
+    /**
+     * Updates the Device Owner setup section:
+     * - Shows Shizuku one-click button when Shizuku is authorized
+     * - Shows ADB fallback command otherwise
+     * - Shows Shizuku mode indicator (Root vs Shell)
+     */
+    private fun updateSetupSection() {
+        val shizukuAvailable = shizuku.isBinderAvailable()
+        val shizukuGranted = shizuku.isPermissionGranted()
+        val isRoot = shizuku.isRootMode()
+
+        // Mode indicator
+        if (shizukuAvailable && shizukuGranted) {
+            binding.shizukuModeText.visibility = View.VISIBLE
+            binding.shizukuModeText.text = if (isRoot)
+                getString(R.string.shizuku_root_mode)
+            else
+                getString(R.string.shizuku_shell_mode)
+        } else {
+            binding.shizukuModeText.visibility = View.GONE
+        }
+
+        // Shizuku one-click button: show when Shizuku is authorized (root mode preferred)
+        if (shizukuAvailable && shizukuGranted) {
+            binding.setDeviceOwnerButton.visibility = View.VISIBLE
+        } else {
+            binding.setDeviceOwnerButton.visibility = View.GONE
+        }
+
+        // ADB fallback: show when Shizuku is not available or not authorized
+        if (!shizukuAvailable || !shizukuGranted) {
+            binding.adbFallbackSection.visibility = View.VISIBLE
+        } else {
+            // Even with Shizuku authorized, still show ADB fallback as alternative
+            binding.adbFallbackSection.visibility = View.GONE
+        }
     }
 
     private fun updateModeBadge() {
@@ -136,7 +176,6 @@ class MainActivity : AppCompatActivity() {
         val available = when {
             controller.isOwnDeviceOwner() -> false
             dhizukuPermissionGranted -> false
-            // Reuse cached init result; invalidate after use in authorize() so next refresh is fresh.
             getCachedDhizukuInit() && !dhizukuPermissionGranted -> true
             shizuku.isBinderAvailable() && !shizuku.isPermissionGranted() -> true
             else -> false
@@ -164,6 +203,33 @@ class MainActivity : AppCompatActivity() {
             }
             else -> toast(getString(R.string.no_authorization_available))
         }
+    }
+
+    /**
+     * Attempts to set this app as Device Owner via Shizuku's privileged process.
+     * When Shizuku runs as ROOT (Magisk/KernelSU), the `dpm set-device-owner` command
+     * succeeds directly. When running as ADB SHELL, it fails with a permission error
+     * and the user falls back to manual ADB.
+     */
+    private fun setDeviceOwnerViaShizuku() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.setup_hint_title)
+            .setMessage(if (shizuku.isRootMode())
+                getString(R.string.confirm_switch_message_device_owner, "此设备")
+            else
+                getString(R.string.shizuku_shell_mode))
+            .setPositiveButton(R.string.confirm) { _, _ ->
+                shizuku.setDeviceOwner { ok, msg ->
+                    if (ok) {
+                        toast(getString(R.string.device_owner_set_success))
+                        refresh()
+                    } else {
+                        toast(getString(R.string.device_owner_set_failed, msg))
+                    }
+                }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
     }
 
     private val shizukuPermissionListener =
