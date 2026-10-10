@@ -57,3 +57,5 @@ Entries discovered by the Agent during task execution should follow this format:
   - Shizuku API `13.1.5` removed `Shizuku.newProcess()` (made it `private`). Use `Shizuku.bindUserService(UserServiceArgs, ServiceConnection)` instead, which requires an AIDL interface and a `destroy()` method that calls `System.exit(0)`.
   - Dhizuku's `DhizukuRequestPermissionListener` is an abstract class (`extends IDhizukuRequestPermissionListener.Stub`), not an interface. In Kotlin, instantiate with `object : DhizukuRequestPermissionListener() { ... }` (note the `()`).
   - Dhizuku-API `2.6.0` requires compileSdk 37; older `2.5.4` works with compileSdk 34.
+  - `kotlin.Result.Success` / `Failure` are `internal` classes in Kotlin stdlib. Do not pattern-match on them; instead use `result.isSuccess` / `result.isFailure` / `result.exceptionOrNull()` to inspect results.
+  - GitHub PAT pushed via `https://user:TOKEN@github.com/...` may fail with `credential helper: server returned status 500`. Use the token inline for the push, then strip it from the remote URL afterward.
