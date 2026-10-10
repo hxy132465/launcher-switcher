@@ -1,7 +1,9 @@
 package com.example.launcherswitcher
 
 import android.content.ComponentName
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
@@ -17,12 +19,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var controller: LauncherController
     private lateinit var shizuku: ShizukuHelper
+    private lateinit var prefs: SharedPreferences
 
     private val shizukuRequestCode = 1
     private val dhizukuRequestCode = 2
 
     @Volatile
     private var dhizukuPermissionGranted = false
+
+    @Volatile
+    private var dhizukuInitResult: Boolean? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,13 +37,19 @@ class MainActivity : AppCompatActivity() {
 
         controller = LauncherController(this)
         shizuku = ShizukuHelper(this)
+        prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
 
         binding.launcherList.layoutManager = LinearLayoutManager(this)
-        binding.launcherList.adapter = LauncherAdapter(emptyList(), null) { confirmSwitch(it) }
+        binding.launcherList.adapter = LauncherAdapter(null) { confirmSwitch(it) }
 
         binding.refreshButton.setOnClickListener { refresh() }
         binding.authorizeButton.setOnClickListener { authorize() }
         binding.resetButton.setOnClickListener { resetDefault() }
+
+        if (!prefs.getBoolean(KEY_WELCOME_SHOWN, false)) {
+            prefs.edit().putBoolean(KEY_WELCOME_SHOWN, true).apply()
+            showWelcomeDialog()
+        }
     }
 
     override fun onStart() {
@@ -68,6 +80,8 @@ class MainActivity : AppCompatActivity() {
         binding.setupHint.visibility = if (isOwner) View.GONE else View.VISIBLE
         binding.setupHint.text = getString(R.string.setup_hint)
 
+        updateModeBadge()
+
         val current = controller.currentLauncherComponent()
         binding.currentLauncher.text = getString(
             R.string.current_launcher_format,
@@ -77,12 +91,23 @@ class MainActivity : AppCompatActivity() {
         dhizukuPermissionGranted = controller.initDhizuku() && controller.isDhizukuPermissionGranted()
 
         val launchers = controller.installedLaunchers()
-        binding.launcherList.swapAdapter(
-            LauncherAdapter(launchers, current?.flattenToString()) { confirmSwitch(it) },
-            true
-        )
+        (binding.launcherList.adapter as? LauncherAdapter)?.submitList(launchers)
+        (binding.launcherList.adapter as? LauncherAdapter)?.updateCurrent(current?.flattenToString())
 
         updateAuthorizeButton()
+    }
+
+    private fun updateModeBadge() {
+        val mode = when {
+            controller.isOwnDeviceOwner() -> ModeBadge.DEVICE_OWNER
+            dhizukuPermissionGranted -> ModeBadge.DHIZUKU
+            shizuku.isBinderAvailable() && shizuku.isPermissionGranted() -> ModeBadge.SHIZUKU
+            else -> ModeBadge.NONE
+        }
+        binding.modeBadge.visibility = if (mode != ModeBadge.NONE) View.VISIBLE else View.GONE
+        binding.modeBadge.setText(mode.labelRes)
+        binding.modeBadge.setTextColor(mode.textColorRes?.let { getColor(it) } ?: android.graphics.Color.WHITE)
+        binding.modeBadge.setBackgroundResource(mode.bgRes)
     }
 
     private fun updateAuthorizeButton() {
@@ -260,5 +285,26 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     }
 
+    private fun showWelcomeDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.welcome_title)
+            .setMessage(R.string.welcome_message)
+            .setPositiveButton(R.string.got_it) { _, _ -> refresh() }
+            .setCancelable(false)
+            .show()
+    }
+
     enum class Mode { DEVICE_OWNER, DHIZUKU, SHIZUKU, NONE }
+
+    private enum class ModeBadge(val labelRes: Int, val bgRes: Int, val textColorRes: Int?) {
+        DEVICE_OWNER(R.string.badge_device_owner, R.color.badge_green, R.color.white),
+        DHIZUKU(R.string.badge_dhizuku, R.color.badge_blue, R.color.white),
+        SHIZUKU(R.string.badge_shizuku, R.color.badge_orange, R.color.white),
+        NONE(0, 0, null)
+    }
+
+    companion object {
+        private const val PREFS_NAME = "launcher_switcher_prefs"
+        private const val KEY_WELCOME_SHOWN = "welcome_shown"
+    }
 }
