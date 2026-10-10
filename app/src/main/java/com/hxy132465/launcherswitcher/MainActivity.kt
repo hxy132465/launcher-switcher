@@ -3,6 +3,9 @@ package com.hxy132465.launcherswitcher
 import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -308,11 +311,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun switchLauncher(launcher: LauncherInfo) {
+        Log.d(TAG, "Switching to launcher: ${launcher.label} (${launcher.component.flattenToString()})")
         val result = controller.setLauncherAsDeviceOwner(launcher.component)
         if (result.isSuccess) {
+            Log.d(TAG, "Launcher switch succeeded")
             toast(getString(R.string.switch_success, launcher.label))
-            refresh()
+            // Small delay to let system apply the change
+            Handler(Looper.getMainLooper()).postDelayed({
+                refresh()
+                Log.d(TAG, "Refreshed after switch")
+            }, 500)
         } else {
+            Log.e(TAG, "Launcher switch failed: ${result.exceptionOrNull()?.message}")
             toast(getString(R.string.switch_failed, result.exceptionOrNull()?.message ?: "unknown"))
         }
     }
@@ -429,5 +439,6 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val PREFS_NAME = "launcher_switcher_prefs"
         private const val KEY_WELCOME_SHOWN = "welcome_shown"
+        const val TAG = "LauncherSwitcher"
     }
 }

@@ -66,7 +66,18 @@ class LauncherController(private val context: Context) {
      */
     fun setLauncherAsDeviceOwner(component: ComponentName): Result<Unit> = runCatching {
         checkOwnDeviceOwner()
+        Log.d(TAG, "Setting launcher as Device Owner: $component")
+        Log.d(TAG, "Admin: $ownAdmin")
+        Log.d(TAG, "HomeFilter: $homeFilter")
+        
+        val success = dpm.addPersistentPreferredActivity(ownAdmin, homeFilter, component)
+        Log.d(TAG, "addPersistentPreferredActivity returned: $success")
+        
+        // Also try to clear any existing preferences for the target package first
+        // to ensure a clean switch
+        dpm.clearPackagePersistentPreferredActivities(ownAdmin, component.packageName)
         dpm.addPersistentPreferredActivity(ownAdmin, homeFilter, component)
+        Log.d(TAG, "Launcher switch completed")
     }
 
     /**
