@@ -64,3 +64,5 @@ Entries discovered by the Agent during task execution should follow this format:
   - AIDL return strings from `ShizukuUserService` should use `EXIT:<code>\n<output>` prefix so callers can reliably detect success via exit code rather than text heuristics.
   - `LauncherController.setLauncherAsDeviceOwner()` and `clearLauncherAsDeviceOwner()` must return `Result<Unit>` (not `Unit`) so failures surface as `Result.failure()` instead of crashing the app.
   - `LauncherController.initDhizuku()` is expensive (Binder call); cache its result in `MainActivity` to avoid repeated calls across `refresh()`/`updateAuthorizeButton()`/`authorize()`.
+  - `dpm set-device-owner` requires **root** (uid 0) on Android; ADB shell (uid 2000) cannot execute it. Shizuku running as root (Magisk/KernelSU) can succeed; as ADB shell it fails with "Permission denied". Detect mode with `Shizuku.getUid() == 0`.
+  - When Shizuku set-device-owner fails in shell mode, show a clear error message guiding the user to either use root-mode Shizuku or fall back to manual ADB command.
