@@ -1,4 +1,4 @@
-package com.example.launcherswitcher
+package com.hxy132465.launcherswitcher
 
 import android.content.ComponentName
 import android.content.Context

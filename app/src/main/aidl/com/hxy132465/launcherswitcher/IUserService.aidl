@@ -1,7 +1,7 @@
 // AIDL interface implemented by ShizukuUserService, which runs in a separate process with the
 // identity of shell (ADB) or root. Return values are prefixed with "EXIT:<code>\n" so the
 // caller can distinguish success (0) from failure (non-zero) reliably, independent of output text.
-package com.example.launcherswitcher;
+package com.hxy132465.launcherswitcher;
 
 interface IUserService {
 
@@ -10,7 +10,7 @@ interface IUserService {
 
     void exit() = 1;
 
-    // Sets the default home activity, e.g. "com.example.launcher/.LauncherActivity".
+    // Sets the default home activity, e.g. "com.hxy132465.launcher/.LauncherActivity".
     // Returns "EXIT:<exitCode>\n<output>".
     String setHomeActivity(String component) = 2;
 

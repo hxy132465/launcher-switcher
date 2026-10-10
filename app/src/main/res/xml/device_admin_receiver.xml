@@ -6,7 +6,7 @@
             declares the receiver as a valid device administrator so the app can
             be promoted to Device Owner via:
                 adb shell dpm set-device-owner \
-                    com.example.launcherswitcher/.MyDeviceAdminReceiver
+                    com.hxy132465.launcherswitcher/.MyDeviceAdminReceiver
         -->
         <force-lock />
     </uses-policies>

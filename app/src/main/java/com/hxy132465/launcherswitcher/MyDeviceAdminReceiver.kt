@@ -1,4 +1,4 @@
-package com.example.launcherswitcher
+package com.hxy132465.launcherswitcher
 
 import android.app.admin.DeviceAdminReceiver
 
@@ -7,7 +7,7 @@ import android.app.admin.DeviceAdminReceiver
  * ComponentName that can be promoted to Device Owner with:
  *
  *   adb shell dpm set-device-owner \
- *       com.example.launcherswitcher/.MyDeviceAdminReceiver
+ *       com.hxy132465.launcherswitcher/.MyDeviceAdminReceiver
  *
  * Device Owner status is what grants access to
  * [android.app.admin.DevicePolicyManager.addPersistentPreferredActivity],

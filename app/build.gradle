@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.launcherswitcher"
+    namespace = "com.hxy132465.launcherswitcher"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.launcherswitcher"
+        applicationId = "com.hxy132465.launcherswitcher"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

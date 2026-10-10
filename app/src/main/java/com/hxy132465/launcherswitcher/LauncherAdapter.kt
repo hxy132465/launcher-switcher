@@ -1,11 +1,11 @@
-package com.example.launcherswitcher
+package com.hxy132465.launcherswitcher
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.example.launcherswitcher.databinding.ItemLauncherBinding
+import com.hxy132465.launcherswitcher.databinding.ItemLauncherBinding
 
 class LauncherAdapter(
     private var currentComponent: String?,

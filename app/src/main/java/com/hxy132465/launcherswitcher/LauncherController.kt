@@ -1,4 +1,4 @@
-package com.example.launcherswitcher
+package com.hxy132465.launcherswitcher
 
 import android.annotation.SuppressLint
 import android.app.admin.DevicePolicyManager

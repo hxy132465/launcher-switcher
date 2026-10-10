@@ -1,4 +1,4 @@
-package com.example.launcherswitcher
+package com.hxy132465.launcherswitcher
 
 import android.content.ComponentName
 import android.content.SharedPreferences
@@ -8,7 +8,7 @@ import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.launcherswitcher.databinding.ActivityMainBinding
+import com.hxy132465.launcherswitcher.databinding.ActivityMainBinding
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rosan.dhizuku.api.DhizukuRequestPermissionListener
 import rikka.shizuku.Shizuku

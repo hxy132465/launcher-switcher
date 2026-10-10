@@ -24,7 +24,7 @@
     <string name="confirm_switch_message_device_owner">Change the default launcher to %1$s?\n\nNote: Device Owner is permanent until explicitly revoked via ADB. Consider using Dhizuku or Shizuku instead.</string>
     <string name="confirm">Confirm</string>
     <string name="cancel">Cancel</string>
-    <string name="setup_hint">Device Owner setup (run once via ADB, no accounts on device):\n\nadb shell dpm set-device-owner com.example.launcherswitcher/.MyDeviceAdminReceiver</string>
+    <string name="setup_hint">Device Owner setup (run once via ADB, no accounts on device):\n\nadb shell dpm set-device-owner com.hxy132465.launcherswitcher/.MyDeviceAdminReceiver</string>
     <string name="welcome_title">Welcome to Launcher Switcher</string>
     <string name="welcome_message">This app switches your device\'s default launcher using elevated privileges.\n\nThree authorization modes are supported (in priority order):\n\n1. Device Owner — most powerful, set via ADB on a clean device.\n2. Dhizuku — share Device Owner permissions from the Dhizuku app.\n3. Shizuku — run shell commands as root/ADB identity via a background service.\n\nChoose the mode that matches your device setup, then tap a launcher below to switch.</string>
     <string name="got_it">Got it</string>
