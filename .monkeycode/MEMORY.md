@@ -59,3 +59,8 @@ Entries discovered by the Agent during task execution should follow this format:
   - Dhizuku-API `2.6.0` requires compileSdk 37; older `2.5.4` works with compileSdk 34.
   - `kotlin.Result.Success` / `Failure` are `internal` classes in Kotlin stdlib. Do not pattern-match on them; instead use `result.isSuccess` / `result.isFailure` / `result.exceptionOrNull()` to inspect results.
   - GitHub PAT pushed via `https://user:TOKEN@github.com/...` may fail with `credential helper: server returned status 500`. Use the token inline for the push, then strip it from the remote URL afterward.
+  - `ShizukuHelper.setHomeActivity()` must post to `mainHandler` before accessing `pendingQueue`; `drainPending()` called from `onServiceConnected` may fire on a Binder thread — always dispatch through `mainHandler.post` to avoid data races on `pendingQueue` (ConcurrentLinkedQueue is used).
+  - `ShizukuUserService.exec()` must be `@Synchronized` (or use `AtomicBoolean` lock) to prevent concurrent shell commands from interleaving when Shizuku's Binder thread pool dispatches multiple calls.
+  - AIDL return strings from `ShizukuUserService` should use `EXIT:<code>\n<output>` prefix so callers can reliably detect success via exit code rather than text heuristics.
+  - `LauncherController.setLauncherAsDeviceOwner()` and `clearLauncherAsDeviceOwner()` must return `Result<Unit>` (not `Unit`) so failures surface as `Result.failure()` instead of crashing the app.
+  - `LauncherController.initDhizuku()` is expensive (Binder call); cache its result in `MainActivity` to avoid repeated calls across `refresh()`/`updateAuthorizeButton()`/`authorize()`.
