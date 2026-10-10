@@ -93,13 +93,24 @@
                         android:textSize="11sp"
                         android:textColor="?android:attr/textColorSecondary" />
 
-                    <!-- Shizuku 一键设置按钮 (仅 Shizuku 可用时显示) -->
+                        <!-- Shizuku 一键设置按钮 (仅 Shizuku 可用时显示) -->
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/setDeviceOwnerButton"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
                         android:text="@string/set_device_owner_via_shizuku"
+                        android:visibility="gone"
+                        tools:visibility="visible" />
+
+                    <!-- 退出设备所有者按钮（仅当前是设备所有者时显示） -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/removeDeviceOwnerButton"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="@string/remove_device_owner"
                         android:visibility="gone"
                         tools:visibility="visible" />
 

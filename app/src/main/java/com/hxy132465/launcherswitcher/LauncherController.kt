@@ -77,6 +77,18 @@ class LauncherController(private val context: Context) {
         dpm.clearPackagePersistentPreferredActivities(ownAdmin, packageName)
     }
 
+    /**
+     * Removes this app's Device Owner status entirely.
+     * After this call the app loses all DevicePolicyManager privileges and reverts
+     * to a normal app. The system will prompt the user to choose a new default launcher.
+     *
+     * Requires API 26+ (Android 8.0). Our minSdk is 26.
+     */
+    fun clearDeviceOwner(): Result<Unit> = runCatching {
+        checkOwnDeviceOwner()
+        dpm.clearDeviceOwnerApp(context.packageName)
+    }
+
     fun setLauncherAsDhizuku(component: ComponentName): Result<Unit> = runCatching {
         ensureDhizukuProxy()
         dpm.addPersistentPreferredActivity(requireDhizukuOwner(), homeFilter, component)

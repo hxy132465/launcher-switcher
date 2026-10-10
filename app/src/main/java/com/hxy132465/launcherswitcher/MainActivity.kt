@@ -48,6 +48,7 @@ class MainActivity : AppCompatActivity() {
         binding.resetButton.setOnClickListener { resetDefault() }
         binding.copyCommandButton.setOnClickListener { copySetupCommand() }
         binding.setDeviceOwnerButton.setOnClickListener { setDeviceOwnerViaShizuku() }
+        binding.removeDeviceOwnerButton.setOnClickListener { removeDeviceOwner() }
 
         if (!prefs.getBoolean(KEY_WELCOME_SHOWN, false)) {
             prefs.edit().putBoolean(KEY_WELCOME_SHOWN, true).apply()
@@ -145,6 +146,10 @@ class MainActivity : AppCompatActivity() {
             binding.setDeviceOwnerButton.visibility = View.GONE
         }
 
+        // Remove Device Owner button: show only when this app IS the device owner
+        binding.removeDeviceOwnerButton.visibility =
+            if (controller.isOwnDeviceOwner()) View.VISIBLE else View.GONE
+
         // ADB fallback: show when Shizuku is not available or not authorized
         if (!shizukuAvailable || !shizukuGranted) {
             binding.adbFallbackSection.visibility = View.VISIBLE
@@ -226,6 +231,27 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         toast(getString(R.string.device_owner_set_failed, msg))
                     }
+                }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    /**
+     * Removes this app's Device Owner status. After success the app reverts to a normal app.
+     */
+    private fun removeDeviceOwner() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.remove_device_owner_confirm_title)
+            .setMessage(R.string.remove_device_owner_confirm_message)
+            .setPositiveButton(R.string.confirm) { _, _ ->
+                val result = controller.clearDeviceOwner()
+                if (result.isSuccess) {
+                    toast(getString(R.string.device_owner_removed))
+                    refresh()
+                } else {
+                    toast(getString(R.string.device_owner_remove_failed,
+                        result.exceptionOrNull()?.message ?: "unknown"))
                 }
             }
             .setNegativeButton(R.string.cancel, null)

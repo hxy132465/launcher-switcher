@@ -41,4 +41,9 @@
     <string name="badge_device_owner">DO</string>
     <string name="badge_dhizuku">DH</string>
     <string name="badge_shizuku">SZ</string>
+    <string name="remove_device_owner">退出设备所有者</string>
+    <string name="remove_device_owner_confirm_title">退出设备所有者</string>
+    <string name="remove_device_owner_confirm_message">退出后本应用将失去所有设备管理权限，系统会恢复默认启动器选择界面。确定要继续吗？</string>
+    <string name="device_owner_removed">设备所有者已移除，请重新选择默认桌面。</string>
+    <string name="device_owner_remove_failed">移除设备所有者失败：%1$s</string>
 </resources>
