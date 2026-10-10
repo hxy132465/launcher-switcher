@@ -59,12 +59,20 @@ class LauncherController(private val context: Context) {
 
     // ---------- actions ----------
 
-    fun setLauncherAsDeviceOwner(component: ComponentName) {
+    /**
+     * Sets the default launcher using this app's own Device Owner status.
+     * The entire call chain (check + DPM call) is wrapped in runCatching so callers
+     * can handle failures without crashing.
+     */
+    fun setLauncherAsDeviceOwner(component: ComponentName): Result<Unit> = runCatching {
         checkOwnDeviceOwner()
         dpm.addPersistentPreferredActivity(ownAdmin, homeFilter, component)
     }
 
-    fun clearLauncherAsDeviceOwner(packageName: String) {
+    /**
+     * Clears the persistent launcher preference using this app's own Device Owner status.
+     */
+    fun clearLauncherAsDeviceOwner(packageName: String): Result<Unit> = runCatching {
         checkOwnDeviceOwner()
         dpm.clearPackagePersistentPreferredActivities(ownAdmin, packageName)
     }

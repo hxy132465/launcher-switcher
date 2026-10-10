@@ -3,7 +3,6 @@ package com.example.launcherswitcher
 import android.content.ComponentName
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
@@ -22,11 +21,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prefs: SharedPreferences
 
     private val shizukuRequestCode = 1
-    private val dhizukuRequestCode = 2
 
     @Volatile
     private var dhizukuPermissionGranted = false
 
+    /** Cached result of the most recent Dhizuku init to avoid redundant Binder calls. */
     @Volatile
     private var dhizukuInitResult: Boolean? = null
 
@@ -72,6 +71,21 @@ class MainActivity : AppCompatActivity() {
         refresh()
     }
 
+    /**
+     * Reuses the cached Dhizuku init result. Resets the cache when an authorization action
+     * is requested so the next refresh re-evaluates.
+     */
+    private fun getCachedDhizukuInit(): Boolean =
+        dhizukuInitResult ?: run {
+            val result = controller.initDhizuku()
+            dhizukuInitResult = result
+            result
+        }
+
+    private fun invalidateDhizukuInitCache() {
+        dhizukuInitResult = null
+    }
+
     private fun refresh() {
         val isOwner = controller.isOwnDeviceOwner()
         binding.ownerStatus.text = getString(
@@ -88,7 +102,7 @@ class MainActivity : AppCompatActivity() {
             current?.packageName ?: getString(android.R.string.unknownName)
         )
 
-        dhizukuPermissionGranted = controller.initDhizuku() && controller.isDhizukuPermissionGranted()
+        dhizukuPermissionGranted = getCachedDhizukuInit() && controller.isDhizukuPermissionGranted()
 
         val launchers = controller.installedLaunchers()
         (binding.launcherList.adapter as? LauncherAdapter)?.submitList(launchers)
@@ -114,7 +128,8 @@ class MainActivity : AppCompatActivity() {
         val available = when {
             controller.isOwnDeviceOwner() -> false
             dhizukuPermissionGranted -> false
-            controller.initDhizuku() && !dhizukuPermissionGranted -> true
+            // Reuse cached init result; invalidate after use in authorize() so next refresh is fresh.
+            getCachedDhizukuInit() && !dhizukuPermissionGranted -> true
             shizuku.isBinderAvailable() && !shizuku.isPermissionGranted() -> true
             else -> false
         }
@@ -124,8 +139,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun authorize() {
         when {
-            controller.initDhizuku() && !dhizukuPermissionGranted -> {
+            getCachedDhizukuInit() && !dhizukuPermissionGranted -> {
                 dhizukuPermissionGranted = controller.isDhizukuPermissionGranted()
+                invalidateDhizukuInitCache()
                 if (!dhizukuPermissionGranted) {
                     controller.requestDhizukuPermission(object : DhizukuRequestPermissionListener() {
                         override fun onRequestPermission(grantResult: Int) {
@@ -192,12 +208,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun switchLauncher(launcher: LauncherInfo) {
-        try {
-            controller.setLauncherAsDeviceOwner(launcher.component)
+        val result = controller.setLauncherAsDeviceOwner(launcher.component)
+        if (result.isSuccess) {
             toast(getString(R.string.switch_success, launcher.label))
             refresh()
-        } catch (e: Exception) {
-            toast(getString(R.string.switch_failed, e.message ?: e.javaClass.simpleName))
+        } else {
+            toast(getString(R.string.switch_failed, result.exceptionOrNull()?.message ?: "unknown"))
         }
     }
 
@@ -263,12 +279,12 @@ class MainActivity : AppCompatActivity() {
                     toast(getString(R.string.reset_none))
                     return
                 }
-                try {
-                    controller.clearLauncherAsDeviceOwner(current.packageName)
+                val result = controller.clearLauncherAsDeviceOwner(current.packageName)
+                if (result.isSuccess) {
                     toast(getString(R.string.reset_success))
                     refresh()
-                } catch (e: Exception) {
-                    toast(getString(R.string.switch_failed, e.message ?: e.javaClass.simpleName))
+                } else {
+                    toast(getString(R.string.switch_failed, result.exceptionOrNull()?.message ?: "unknown"))
                 }
             }
         }

@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import java.util.concurrent.ConcurrentLinkedQueue
 import rikka.shizuku.Shizuku
 
 /**
@@ -23,8 +24,13 @@ class ShizukuHelper(private val context: Context) {
     @Volatile
     private var bound = false
 
-    /** Queue of pending (component, callback) pairs. Fixes race where rapid taps overwrite each other. */
-    private val pendingQueue = mutableListOf<Pair<String, (Boolean, String) -> Unit>>()
+    /**
+     * Queue of pending (component, clear-flag, callback) triples.
+     * Uses ConcurrentLinkedQueue for lock-free thread-safe access from both
+     * the main thread (setHomeActivity) and the Binder thread (drainPending
+     * dispatched via mainHandler).
+     */
+    private val pendingQueue = ConcurrentLinkedQueue<Pair<String, ((Boolean, String) -> Unit)>>()
 
     private val userServiceArgs: Shizuku.UserServiceArgs =
         Shizuku.UserServiceArgs(
@@ -41,7 +47,8 @@ class ShizukuHelper(private val context: Context) {
             } else {
                 null
             }
-            drainPending()
+            // onServiceConnected may fire on a Binder thread; dispatch drain to main thread.
+            mainHandler.post { drainPending() }
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -83,8 +90,7 @@ class ShizukuHelper(private val context: Context) {
 
     /**
      * Sets the default home activity. [component] must be a flattened component name
-     * ("package/class"). Supports [clear] flag to clear the persistent home preference
-     * via the system role command when possible.
+     * ("package/class"). Supports [clear] flag to clear the persistent home preference.
      */
     fun setHomeActivity(component: String, clear: Boolean = false, callback: (Boolean, String) -> Unit) {
         mainHandler.post {
@@ -93,7 +99,8 @@ class ShizukuHelper(private val context: Context) {
                 pendingQueue.add(component to callback)
                 bind()
                 if (!bound) {
-                    pendingQueue.removeAll { it.first == component && it.second === callback }
+                    // Remove this specific callback (not the queued entry) so we don't leak it.
+                    pendingQueue.removeAll { entry -> entry.second === callback }
                     callback(false, "Shizuku is not authorized")
                 }
             } else {
@@ -102,12 +109,20 @@ class ShizukuHelper(private val context: Context) {
         }
     }
 
+    /**
+     * Called from mainHandler.post inside onServiceConnected to drain pending requests.
+     * Runs on the main thread; safe to mutate pendingQueue without locking.
+     */
     private fun drainPending() {
-        while (pendingQueue.isNotEmpty()) {
-            val (comp, cb) = pendingQueue.removeAt(0)
+        while (true) {
+            val entry = pendingQueue.poll() ?: break
             val svc = service
-            if (svc == null) break
-            execAsync(svc, comp, false, cb)
+            if (svc == null) {
+                // Re-enqueue so it's not lost if the service reconnects.
+                pendingQueue.add(entry)
+                break
+            }
+            execAsync(svc, entry.first, false, entry.second)
         }
     }
 
@@ -119,19 +134,36 @@ class ShizukuHelper(private val context: Context) {
     ) {
         Thread {
             val result = try {
-                val output = if (clear) {
-                    svc.clearHomeActivity(component)
-                } else {
-                    svc.setHomeActivity(component)
-                }
-                val failed = output.startsWith("ERROR") ||
-                    output.contains("Error", ignoreCase = true) ||
-                    output.contains("Exception", ignoreCase = true)
-                (!failed) to output
+                val raw = if (clear) svc.clearHomeActivity(component) else svc.setHomeActivity(component)
+                parseResult(raw)
             } catch (t: Throwable) {
                 false to (t.message ?: t.javaClass.simpleName)
             }
             mainHandler.post { callback(result.first, result.second) }
         }.start()
+    }
+
+    /**
+     * Parses the string returned by ShizukuUserService.
+     * Format: "EXIT:<code>\n<remaining output>" or bare output for compatibility.
+     */
+    private fun parseResult(output: String): Pair<Boolean, String> {
+        val trimmed = output.trim()
+        val lines = trimmed.split("\n", limit = 2)
+        val firstLine = lines.getOrElse(0) { "" }
+        return if (firstLine.startsWith("EXIT:")) {
+            val exitCode = firstLine.removePrefix("EXIT:").toIntOrNull() ?: -1
+            val remainder = lines.getOrElse(1) { "" }.trim()
+            val failed = exitCode != 0 || remainder.startsWith("ERROR") ||
+                remainder.contains("Error", ignoreCase = true) ||
+                remainder.contains("Exception", ignoreCase = true)
+            (!failed) to remainder.ifEmpty { if (exitCode == 0) "OK" else "EXIT:$exitCode" }
+        } else {
+            // Legacy format (no EXIT: prefix): fall back to text heuristics.
+            val failed = trimmed.startsWith("ERROR") ||
+                trimmed.contains("Error", ignoreCase = true) ||
+                trimmed.contains("Exception", ignoreCase = true)
+            (!failed) to trimmed.ifEmpty { "OK" }
+        }
     }
 }

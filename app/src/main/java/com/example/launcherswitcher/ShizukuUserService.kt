@@ -2,6 +2,7 @@ package com.example.launcherswitcher
 
 import android.content.Context
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Runs in a separate process with the identity of shell (ADB) or root, launched by the
@@ -33,31 +34,33 @@ class ShizukuUserService : IUserService.Stub {
         // Try to remove the ROLE_HOME holder for the package that matches the target launcher.
         // If the package is provided as a full component, extract the package part.
         val targetPackage = component.substringBefore('/', component)
-        return try {
-            val proc = Runtime.getRuntime().exec(arrayOf(CMD, "role", "remove-role-holder", ROLE_HOME, targetPackage))
-            val stdout = proc.inputStream.bufferedReader().use { it.readText() }
-            val stderr = proc.errorStream.bufferedReader().use { it.readText() }
-            proc.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            (stdout + stderr).trim().ifEmpty { "OK" }
-        } catch (e: Exception) {
-            "ERROR: ${e.message}"
-        }
+        return exec(CMD, "role", "remove-role-holder", ROLE_HOME, targetPackage)
     }
 
+    /**
+     * Executes [command] synchronously with a timeout. Returns "EXIT:<code>\n<output>" so the
+     * caller can unambiguously detect success (exit code 0) regardless of output formatting.
+     *
+     * Protected by [execLock] to prevent concurrent shell executions from interleaving.
+     */
+    @Synchronized
     private fun exec(vararg command: String): String {
+        if (!execLock.compareAndSet(false, true)) {
+            return "EXIT:-1\nERROR: previous exec still running"
+        }
         return try {
             val process = Runtime.getRuntime().exec(command)
             val success = process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS)
             val stdout = process.inputStream.bufferedReader().use { it.readText() }
             val stderr = process.errorStream.bufferedReader().use { it.readText() }
-            if (!success) {
-                process.destroyForcibly()
-            }
-            (stdout + stderr).trim().ifEmpty {
-                if (success) "OK" else "TIMEOUT"
-            }
+            val output = (stdout + stderr).trim()
+            val exitCode = if (success) process.exitValue() else -1
+            if (!success) process.destroyForcibly()
+            "EXIT:$exitCode\n$output"
         } catch (t: Throwable) {
-            "ERROR: ${t.message}"
+            "EXIT:-1\nERROR: ${t.message}"
+        } finally {
+            execLock.set(false)
         }
     }
 
@@ -66,4 +69,6 @@ class ShizukuUserService : IUserService.Stub {
         const val ROLE_HOME = "android.app.role.HOME"
         const val TIMEOUT_SECONDS = 10L
     }
+
+    private val execLock = AtomicBoolean(false)
 }
