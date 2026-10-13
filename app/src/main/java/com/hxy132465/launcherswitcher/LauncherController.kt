@@ -68,42 +68,18 @@ class LauncherController(private val context: Context) {
         checkOwnDeviceOwner()
         
         // Validate that the component actually exists and has an activity
-        val activityInfo = context.packageManager.getActivityInfo(component, 0).activityInfo
+        val activityInfo = context.packageManager.getActivityInfo(component, 0)
         Log.d(TAG, "Target activity: ${activityInfo.name}")
-        
+
         Log.d(TAG, "Setting launcher as Device Owner: $component")
         Log.d(TAG, "Admin: $ownAdmin")
         Log.d(TAG, "HomeFilter: $homeFilter")
-        
-        // The key fix: try both with and without CATEGORY_DEFAULT
-        // Some launchers only declare HOME, not HOME|DEFAULT
-        val filterWithDefault = IntentFilter(Intent.ACTION_MAIN).apply {
-            addCategory(Intent.CATEGORY_HOME)
-            addCategory(Intent.CATEGORY_DEFAULT)
-        }
-        val filterWithoutDefault = IntentFilter(Intent.ACTION_MAIN).apply {
-            addCategory(Intent.CATEGORY_HOME)
-        }
-        
-        // Try with DEFAULT first, then without
-        val success1 = dpm.addPersistentPreferredActivity(ownAdmin, filterWithDefault, component)
-        Log.d(TAG, "addPersistentPreferredActivity(with DEFAULT) returned: $success1")
-        
-        if (success1 == 0) {
-            // If it returned 0 (no change), try without DEFAULT category
-            val success2 = dpm.addPersistentPreferredActivity(ownAdmin, filterWithoutDefault, component)
-            Log.d(TAG, "addPersistentPreferredActivity(without DEFAULT) returned: $success2")
-        }
-        
-        // Also clear any existing preferences to force a fresh start
+
+        // Clear any stale preference for this package, then set the persistent preference.
         dpm.clearPackagePersistentPreferredActivities(ownAdmin, component.packageName)
-        Log.d(TAG, "Cleared existing preferences for ${component.packageName}")
-        
-        // Re-add after clearing
-        val success3 = dpm.addPersistentPreferredActivity(ownAdmin, filterWithDefault, component)
-        Log.d(TAG, "Re-add after clear returned: $success3")
-        
-        Log.d(TAG, "Launcher switch completed")
+        dpm.addPersistentPreferredActivity(ownAdmin, homeFilter, component)
+
+        Log.d(TAG, "Launcher switch completed: $component")
     }
 
     /**
@@ -177,15 +153,13 @@ class LauncherController(private val context: Context) {
             .mapNotNull { resolveInfo ->
                 val activityInfo = resolveInfo.activityInfo
                 if (activityInfo == null) {
-                    Log.w(TAG, "Skipping resolveInfo without activityInfo: ${resolveInfo.packageName}")
+                    Log.w(TAG, "Skipping resolveInfo without activityInfo")
                     return@mapNotNull null
                 }
                 val component = ComponentName(activityInfo.packageName, activityInfo.name)
-                
-                // Verify this component can actually be resolved
-                val testResolve = pm.resolveActivity(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
+
                 Log.d(TAG, "Launcher: ${resolveInfo.loadLabel(pm)} - ${component.flattenToString()}")
-                
+
                 LauncherInfo(
                     label = resolveInfo.loadLabel(pm).toString(),
                     component = component,
