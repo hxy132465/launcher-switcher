@@ -103,17 +103,6 @@
                         android:visibility="gone"
                         tools:visibility="visible" />
 
-                    <!-- 退出设备所有者按钮（仅当前是设备所有者时显示） -->
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/removeDeviceOwnerButton"
-                        style="@style/Widget.Material3.Button.OutlinedButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:text="@string/remove_device_owner"
-                        android:visibility="gone"
-                        tools:visibility="visible" />
-
                     <!-- ADB 备用方案 (Shizuku 不可用或 root 模式不可用时显示) -->
                     <LinearLayout
                         android:id="@+id/adbFallbackSection"
@@ -152,6 +141,17 @@
                             android:text="@string/copy_command" />
                     </LinearLayout>
                 </LinearLayout>
+
+                <!-- 退出设备所有者按钮（仅当前是设备所有者时显示） -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/removeDeviceOwnerButton"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/remove_device_owner"
+                    android:visibility="gone"
+                    tools:visibility="visible" />
             </LinearLayout>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
